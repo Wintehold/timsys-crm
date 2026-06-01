@@ -1,0 +1,16 @@
+{
+  "name": "tim-crm-preview-1",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "backend",
+    "web-crm",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace web-crm",
+    "build": "npm run build --workspace web-crm",
+    "preview": "npm run preview --workspace web-crm",
+    "backend:dev": "npm run dev --workspace backend"
+  }
+}
