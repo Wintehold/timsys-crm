@@ -1,33 +1,58 @@
-import type { Client, ClientRequest, PropertyCard, User } from "@timcrm/shared";
+import type { AuditLog, Client, ClientRequest, PropertyCard, User } from "@timcrm/shared";
+
+const stamp = "2026-05-31T10:00:00.000Z";
+
+export const initialPasswords: Record<string, string> = {
+  luci: "GOT2026GOT",
+  Hicham: "12345678",
+  Alie: "12345678",
+  Sara: "12345678"
+};
 
 export const users: User[] = [
   {
     id: "u-lucifer",
+    username: "luci",
     name: "Lucifer Morningstar",
-    email: "lucifer@tim.local",
     role: "LUCIFER",
-    visibleToAdmin: false
+    mustChangePassword: true,
+    isActive: true,
+    visibleToAdmin: false,
+    createdAt: stamp,
+    updatedAt: stamp
   },
   {
     id: "u-admin",
-    name: "Nadia El Mansouri",
-    email: "admin@tim.local",
+    username: "Hicham",
+    name: "Hicham Admin",
     role: "ADMIN",
-    visibleToAdmin: true
+    mustChangePassword: true,
+    isActive: true,
+    visibleToAdmin: true,
+    createdAt: stamp,
+    updatedAt: stamp
+  },
+  {
+    id: "u-alie",
+    username: "Alie",
+    name: "Alie Conseiller",
+    role: "CONSEILLER",
+    mustChangePassword: true,
+    isActive: true,
+    visibleToAdmin: true,
+    createdAt: stamp,
+    updatedAt: stamp
   },
   {
     id: "u-sara",
-    name: "Sara Benjelloun",
-    email: "sara@tim.local",
+    username: "Sara",
+    name: "Sara Conseillere",
     role: "CONSEILLER",
-    visibleToAdmin: true
-  },
-  {
-    id: "u-youssef",
-    name: "Youssef Amrani",
-    email: "youssef@tim.local",
-    role: "CONSEILLER",
-    visibleToAdmin: true
+    mustChangePassword: true,
+    isActive: true,
+    visibleToAdmin: true,
+    createdAt: stamp,
+    updatedAt: stamp
   }
 ];
 
@@ -38,8 +63,13 @@ export const clients: Client[] = [
     lastName: "Alaoui",
     primaryPhone: "+212 6 11 22 33 44",
     email: "meryem@example.com",
+    source: "Yakeey",
+    estimatedBudget: 1800000,
     notes: "Recherche un appartement lumineux proche tram.",
-    assignedAdvisorId: "u-sara"
+    assignedAdvisorId: "u-alie",
+    status: "en recherche",
+    createdAt: "2026-05-25T09:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "c-2",
@@ -47,8 +77,13 @@ export const clients: Client[] = [
     lastName: "Bennis",
     primaryPhone: "+212 6 55 19 88 71",
     secondaryPhone: "+212 5 22 10 20 30",
+    source: "Recommandation",
+    estimatedBudget: 15000,
     notes: "Investisseur, decision rapide si rendement clair.",
-    assignedAdvisorId: "u-youssef"
+    assignedAdvisorId: "u-sara",
+    status: "actif",
+    createdAt: "2026-05-26T09:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "c-3",
@@ -56,8 +91,13 @@ export const clients: Client[] = [
     lastName: "Tazi",
     primaryPhone: "+212 6 70 42 19 02",
     email: "leila@example.com",
+    source: "Instagram",
+    estimatedBudget: 4600000,
     notes: "Famille, besoin d'une residence calme.",
-    assignedAdvisorId: "u-sara"
+    assignedAdvisorId: "u-alie",
+    status: "en negociation",
+    createdAt: "2026-05-28T09:00:00.000Z",
+    updatedAt: stamp
   }
 ];
 
@@ -65,7 +105,7 @@ export const requests: ClientRequest[] = [
   {
     id: "r-1",
     clientId: "c-1",
-    advisorId: "u-sara",
+    advisorId: "u-alie",
     transactionType: "achat",
     city: "Casablanca",
     districts: ["Maarif", "Gauthier", "Racine"],
@@ -75,13 +115,20 @@ export const requests: ClientRequest[] = [
     minSurface: 95,
     minBedrooms: 2,
     minBathrooms: 2,
+    elevator: true,
+    parking: true,
+    terrace: false,
+    furnished: false,
+    urgency: "elevee",
+    status: "ouverte",
     notes: "Lumineux, proche commerces et tram.",
-    createdAt: "2026-05-25"
+    createdAt: "2026-05-25T10:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "r-2",
     clientId: "c-2",
-    advisorId: "u-youssef",
+    advisorId: "u-sara",
     transactionType: "location",
     city: "Rabat",
     districts: ["Agdal", "Hay Riad"],
@@ -91,8 +138,15 @@ export const requests: ClientRequest[] = [
     minSurface: 80,
     minBedrooms: 2,
     minBathrooms: 1,
-    notes: "Standing, ascenseur et parking.",
-    createdAt: "2026-05-27"
+    elevator: true,
+    parking: true,
+    terrace: true,
+    furnished: false,
+    urgency: "normale",
+    status: "en analyse",
+    notes: "Standing, ascenseur, parking et balcon.",
+    createdAt: "2026-05-27T10:00:00.000Z",
+    updatedAt: stamp
   }
 ];
 
@@ -110,8 +164,14 @@ export const propertyCards: PropertyCard[] = [
     shortDescription: "Appartement lumineux, proche commerces, tram et parking.",
     source: "Yakeey",
     sourceUrl: "https://yakeey.example/maarif-112",
-    ownerAdvisorId: "u-youssef",
-    importedAt: "2026-05-26"
+    ownerAdvisorId: "u-sara",
+    status: "actif",
+    elevator: true,
+    parking: true,
+    terrace: false,
+    furnished: false,
+    importedAt: "2026-05-26T10:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "p-2",
@@ -126,8 +186,14 @@ export const propertyCards: PropertyCard[] = [
     shortDescription: "Villa calme avec jardin et grande reception.",
     source: "Yakeey",
     sourceUrl: "https://yakeey.example/californie-villa",
-    ownerAdvisorId: "u-sara",
-    importedAt: "2026-05-20"
+    ownerAdvisorId: "u-alie",
+    status: "actif",
+    elevator: false,
+    parking: true,
+    terrace: true,
+    furnished: false,
+    importedAt: "2026-05-20T10:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "p-3",
@@ -142,8 +208,14 @@ export const propertyCards: PropertyCard[] = [
     shortDescription: "Residence securisee avec ascenseur, parking et balcon.",
     source: "Yakeey",
     sourceUrl: "https://yakeey.example/agdal-standing",
-    ownerAdvisorId: "u-sara",
-    importedAt: "2026-05-28"
+    ownerAdvisorId: "u-alie",
+    status: "actif",
+    elevator: true,
+    parking: true,
+    terrace: true,
+    furnished: false,
+    importedAt: "2026-05-28T10:00:00.000Z",
+    updatedAt: stamp
   }
 ];
 
@@ -162,7 +234,13 @@ export const externalProperties: PropertyCard[] = [
     source: "Avito",
     sourceUrl: "https://avito.example/racine-terrasse",
     ownerAdvisorId: "external",
-    importedAt: "2026-05-29"
+    status: "actif",
+    elevator: true,
+    parking: true,
+    terrace: true,
+    furnished: false,
+    importedAt: "2026-05-29T10:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "e-2",
@@ -178,7 +256,13 @@ export const externalProperties: PropertyCard[] = [
     source: "Mubawab",
     sourceUrl: "https://mubawab.example/bourgogne-studio",
     ownerAdvisorId: "external",
-    importedAt: "2026-05-29"
+    status: "actif",
+    elevator: true,
+    parking: false,
+    terrace: false,
+    furnished: true,
+    importedAt: "2026-05-29T10:00:00.000Z",
+    updatedAt: stamp
   },
   {
     id: "e-3",
@@ -194,6 +278,42 @@ export const externalProperties: PropertyCard[] = [
     source: "Mubawab",
     sourceUrl: "https://mubawab.example/hay-riad",
     ownerAdvisorId: "external",
-    importedAt: "2026-05-30"
+    status: "actif",
+    elevator: true,
+    parking: true,
+    terrace: true,
+    furnished: false,
+    importedAt: "2026-05-30T10:00:00.000Z",
+    updatedAt: stamp
+  }
+];
+
+export const auditLogs: AuditLog[] = [
+  {
+    id: "log-1",
+    actorUserId: "u-lucifer",
+    action: "seed_preview_2",
+    entityType: "system",
+    entityId: "preview-2",
+    metadata: { users: users.length },
+    createdAt: stamp
+  },
+  {
+    id: "log-2",
+    actorUserId: "u-alie",
+    action: "creation_demande",
+    entityType: "request",
+    entityId: "r-1",
+    metadata: { city: "Casablanca" },
+    createdAt: "2026-05-25T10:05:00.000Z"
+  },
+  {
+    id: "log-3",
+    actorUserId: "u-sara",
+    action: "import_vision_card",
+    entityType: "property_card",
+    entityId: "p-1",
+    metadata: { source: "Yakeey" },
+    createdAt: "2026-05-26T10:05:00.000Z"
   }
 ];

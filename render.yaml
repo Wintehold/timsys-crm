@@ -8,7 +8,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: https://mnzzeuqxzrfsqiynfgmy.supabase.co
+      - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: AUTH_TOKEN_SECRET
         sync: false
