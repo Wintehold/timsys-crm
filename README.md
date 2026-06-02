@@ -28,7 +28,4 @@ The frontend is designed for Vercel. The backend folder is Render-ready and can 
 
 ## Demo logins
 
-- `lucifer@tim.local` / `preview123`
-- `admin@tim.local` / `preview123`
-- `sara@tim.local` / `preview123`
-- `youssef@tim.local` / `preview123`
+
