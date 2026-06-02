@@ -127,16 +127,14 @@ export function scorePropertyMatch<T extends PropertyCard>(
     }
   }
 
-  if (sameText(property.city, request.city)) {
-    score += 15;
+  if (request.districts.some((district) => sameText(district, property.district))) {
+    score += 25;
+    reasons.push("Quartier demande");
+  } else if (sameText(property.city, request.city)) {
+    score += 12;
     reasons.push("Ville compatible");
   } else {
     blockers.push("Ville differente");
-  }
-
-  if (request.districts.some((district) => sameText(district, property.district))) {
-    score += 15;
-    reasons.push("Quartier demande");
   }
 
   if (sameText(property.propertyType, request.propertyType)) {
@@ -160,14 +158,16 @@ export function scorePropertyMatch<T extends PropertyCard>(
     blockers.push("Chambres insuffisantes");
   }
 
-  if (property.bathrooms >= request.minBathrooms) {
-    score += 5;
-    reasons.push("Salles de bain suffisantes");
+  const propertyTransaction: TransactionType = property.price < 50000 ? "location" : "achat";
+  if (propertyTransaction === request.transactionType) {
+    score += 10;
+    reasons.push("Transaction compatible");
   } else {
-    blockers.push("Salles de bain insuffisantes");
+    blockers.push("Transaction differente");
   }
 
   const wantedOptions = [
+    property.bathrooms >= request.minBathrooms,
     request.elevator && property.elevator,
     request.parking && property.parking,
     request.terrace && property.terrace,

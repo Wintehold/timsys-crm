@@ -3,7 +3,9 @@ import {
   BarChart3,
   Building2,
   CheckCircle2,
+  Clipboard,
   Contact,
+  Eye,
   FilePlus2,
   Home,
   KeyRound,
@@ -15,6 +17,7 @@ import {
   Shield,
   Sparkles,
   Sun,
+  Target,
   UploadCloud,
   UserPlus,
   Users,
@@ -43,6 +46,42 @@ import {
 import { money, shortDate } from "./lib/format";
 
 type Theme = "light" | "dark";
+type HunterTransaction = "Vente" | "Location";
+type HunterCriteria = {
+  type: string;
+  transaction: HunterTransaction;
+  city: string;
+  district: string;
+  bedrooms: string;
+  budgetMin: string;
+  budgetMax: string;
+  surfaceMin: string;
+  surfaceMax: string;
+};
+type HunterResult = {
+  id: string;
+  source: "Avito" | "Mubawab" | "Yakeey interne";
+  score: number;
+  title: string;
+  price: number;
+  transaction: HunterTransaction;
+  city: string;
+  district: string;
+  propertyType: string;
+  surface: number;
+  bedrooms: number;
+  bathrooms: number;
+  sourceUrl: string;
+  shortDescription: string;
+  reasons: string[];
+  blockers: string[];
+  duplicateNotice?: string;
+};
+type GeneratedAd = {
+  channel: "Avito" | "Mubawab" | "Marketplace" | "Instagram";
+  title: string;
+  text: string;
+};
 
 type CrmContext = {
   currentUser: User | null;
@@ -51,6 +90,7 @@ type CrmContext = {
   requests: ClientRequest[];
   propertyCards: PropertyCard[];
   auditLogs: AuditLog[];
+  generatedAds: Record<string, GeneratedAd[]>;
   passwordBook: Record<string, string>;
   theme: Theme;
   setCurrentUser: (user: User | null) => void;
@@ -58,6 +98,7 @@ type CrmContext = {
   setClients: (clients: Client[]) => void;
   setRequests: (requests: ClientRequest[]) => void;
   setPropertyCards: (cards: PropertyCard[]) => void;
+  setGeneratedAds: (ads: Record<string, GeneratedAd[]>) => void;
   setPasswordBook: (book: Record<string, string>) => void;
   setTheme: (theme: Theme) => void;
   logAction: (action: string, entityType: string, entityId?: string, metadata?: AuditLog["metadata"]) => void;
@@ -70,6 +111,7 @@ export default function App() {
   const [requests, setRequests] = useState<ClientRequest[]>(seedRequests);
   const [propertyCards, setPropertyCards] = useState<PropertyCard[]>(seedPropertyCards);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(seedAuditLogs);
+  const [generatedAds, setGeneratedAds] = useState<Record<string, GeneratedAd[]>>({});
   const [passwordBook, setPasswordBook] = useState<Record<string, string>>(initialPasswords);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem("tim-crm-theme") as Theme) || "dark");
 
@@ -85,6 +127,7 @@ export default function App() {
     requests,
     propertyCards,
     auditLogs,
+    generatedAds,
     passwordBook,
     theme,
     setCurrentUser,
@@ -92,6 +135,7 @@ export default function App() {
     setClients,
     setRequests,
     setPropertyCards,
+    setGeneratedAds,
     setPasswordBook,
     setTheme,
     logAction: (action, entityType, entityId, metadata = {}) => {
@@ -143,6 +187,7 @@ export default function App() {
         <Route path="/requests/:id" element={<RequestDetailPage context={context} />} />
         <Route path="/import-yakeey" element={<ImportYakeeyPage context={context} />} />
         <Route path="/vision-cards" element={<VisionCardsPage context={context} />} />
+        <Route path="/ai-writer/:id" element={<AiWriterPage context={context} />} />
         <Route path="/smart-hunter" element={<SmartHunterPage context={context} />} />
         <Route path="/admin" element={<AdminPage context={context} />} />
         <Route path="/audit-logs" element={<AuditLogsPage context={context} />} />
@@ -309,17 +354,20 @@ function Dashboard({ context }: { context: CrmContext }) {
   const cards = visibleVisionCards(context).filter((card) => card.status === "actif");
   const matchCount = requests.reduce((total, request) => total + internalMatches(context, request).length, 0);
   const externalCount = requests.reduce((total, request) => total + externalMatches(request).length, 0);
+  const topScored = requests.flatMap((request) => [...internalMatches(context, request), ...externalMatches(request)]).slice(0, 3);
+  const generatedAdsCount = Object.values(context.generatedAds).reduce((total, ads) => total + ads.length, 0);
 
   return (
-    <Page title="Dashboard metier" eyebrow="TIM CRM Preview 2" action={<QuickActions />}>
+    <Page title="Dashboard metier" eyebrow="TIM CRM Beta 1" action={<QuickActions />}>
       <section className="metric-grid">
         <Metric title="Clients actifs" value={clients.filter((client) => client.status !== "cloture").length} icon={<Users size={20} />} />
         <Metric title="Demandes ouvertes" value={requests.filter((request) => request.status !== "cloturee").length} icon={<FilePlus2 size={20} />} />
         <Metric title="Vision Cards actives" value={cards.length} icon={<Building2 size={20} />} />
-        <Metric title="Matches internes" value={matchCount} icon={<BarChart3 size={20} />} />
-        <Metric title="Matches externes" value={externalCount} icon={<Sparkles size={20} />} />
-        <Metric title="Urgences" value={requests.filter((request) => ["elevee", "immediate"].includes(request.urgency)).length} icon={<Shield size={20} />} />
+        <Metric title="Resultats Hunter" value={matchCount + externalCount} icon={<Target size={20} />} />
+        <Metric title="Annonces IA" value={generatedAdsCount} icon={<Sparkles size={20} />} />
+        <Metric title="Demandes urgentes" value={requests.filter((request) => ["elevee", "immediate"].includes(request.urgency)).length} icon={<Shield size={20} />} />
         <Metric title="Imports recents" value={cards.filter((card) => card.source === "Yakeey").length} icon={<UploadCloud size={20} />} />
+        <Metric title="Conseillers actifs" value={context.users.filter((user) => user.role === "CONSEILLER" && user.isActive).length} icon={<Users size={20} />} />
       </section>
       <section className="split-layout">
         <div className="panel">
@@ -338,6 +386,12 @@ function Dashboard({ context }: { context: CrmContext }) {
           </div>
         </div>
       </section>
+      <section className="panel">
+        <h2>Top biens scores</h2>
+        <div className="hunter-results compact-results">
+          {topScored.length ? topScored.map((match) => <HunterResultCard key={`${match.property.id}-${match.score}`} result={matchToHunterResult(match)} />) : <p className="muted">Aucun bien score pour le moment.</p>}
+        </div>
+      </section>
     </Page>
   );
 }
@@ -348,7 +402,8 @@ function QuickActions() {
       <Link className="primary-button" to="/clients/new"><Plus size={18} /><span>Nouveau client</span></Link>
       <Link className="secondary-button" to="/requests/new"><FilePlus2 size={18} /><span>Nouvelle demande</span></Link>
       <Link className="secondary-button" to="/import-yakeey"><UploadCloud size={18} /><span>Importer Yakeey</span></Link>
-      <Link className="secondary-button" to="/smart-hunter"><Wand2 size={18} /><span>Hunter V3</span></Link>
+      <Link className="secondary-button" to="/smart-hunter"><Wand2 size={18} /><span>Lancer la chasse</span></Link>
+      <Link className="secondary-button" to="/vision-cards"><Sparkles size={18} /><span>Redacteur IA</span></Link>
     </div>
   );
 }
@@ -591,23 +646,59 @@ function RequestDetailPage({ context }: { context: CrmContext }) {
 
 function ImportYakeeyPage({ context }: { context: CrmContext }) {
   const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<PropertyCard | null>(null);
   const [created, setCreated] = useState<PropertyCard | null>(null);
-  const submit = (event: FormEvent) => {
+  const analyze = (event: FormEvent) => {
     event.preventDefault();
+    setCreated(null);
+    setError("");
+    if (!url.trim()) return setError("Lien Yakeey obligatoire.");
+    if (!/yakeey/i.test(url)) return setError("Le lien doit contenir yakeey.");
     const ownerAdvisorId = context.currentUser!.role === "CONSEILLER" ? context.currentUser!.id : visibleUsers(context).find((user) => user.role === "CONSEILLER")?.id ?? context.currentUser!.id;
-    const card = mockYakeeyCard(url, ownerAdvisorId);
+    setPreview(analyzeYakeeyLink(url, ownerAdvisorId));
+  };
+  const updatePreview = (patch: Partial<PropertyCard>) => {
+    if (preview) setPreview({ ...preview, ...patch });
+  };
+  const createCard = () => {
+    if (!preview) return;
+    if (!preview.title || !preview.city || !preview.propertyType || Number.isNaN(preview.price) || Number.isNaN(preview.surface)) {
+      setError("Titre, ville, type, prix numerique et surface numerique sont obligatoires.");
+      return;
+    }
+    const card = { ...preview, id: crypto.randomUUID(), importedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     context.setPropertyCards([card, ...context.propertyCards]);
-    context.logAction("import_vision_card", "property_card", card.id, { sourceUrl: url });
+    context.logAction("import_vision_card", "property_card", card.id, { sourceUrl: card.sourceUrl });
     setCreated(card);
+    setPreview(null);
     setUrl("");
   };
   return (
     <Page title="Importer un bien" eyebrow="Vision Card Yakeey">
-      <form className="form-panel single" onSubmit={submit}>
+      <form className="form-panel single" onSubmit={analyze}>
         <TextInput label="Lien Yakeey" type="url" value={url} onChange={setUrl} required />
-        <button className="primary-button" type="submit"><UploadCloud size={18} /><span>Generer Vision Card</span></button>
+        <button className="primary-button" type="submit"><Search size={18} /><span>Analyser</span></button>
       </form>
-      {created && <section className="panel"><h2>Vision Card creee</h2><PropertyCardView card={created} context={context} /></section>}
+      {error && <p className="error">{error}</p>}
+      {preview && (
+        <section className="panel">
+          <h2>Preview Yakeey</h2>
+          <div className="form-panel">
+            <TextInput label="Titre" value={preview.title} onChange={(title) => updatePreview({ title })} required />
+            <TextInput label="Prix" type="number" value={String(preview.price)} onChange={(price) => updatePreview({ price: Number(price) })} required />
+            <TextInput label="Ville" value={preview.city} onChange={(city) => updatePreview({ city })} required />
+            <TextInput label="Quartier" value={preview.district} onChange={(district) => updatePreview({ district })} />
+            <TextInput label="Type" value={preview.propertyType} onChange={(propertyType) => updatePreview({ propertyType })} required />
+            <TextInput label="Surface" type="number" value={String(preview.surface)} onChange={(surface) => updatePreview({ surface: Number(surface) })} required />
+            <TextInput label="Chambres" type="number" value={String(preview.bedrooms)} onChange={(bedrooms) => updatePreview({ bedrooms: Number(bedrooms) })} />
+            <TextInput label="Salles de bain" type="number" value={String(preview.bathrooms)} onChange={(bathrooms) => updatePreview({ bathrooms: Number(bathrooms) })} />
+            <label className="wide">Description courte<textarea value={preview.shortDescription} onChange={(event) => updatePreview({ shortDescription: event.target.value })} /></label>
+            <button className="primary-button" type="button" onClick={createCard}><UploadCloud size={18} /><span>Creer la Vision Card</span></button>
+          </div>
+        </section>
+      )}
+      {created && <section className="panel"><h2>Vision Card creee</h2><PropertyCardView card={created} context={context} mutable /></section>}
     </Page>
   );
 }
@@ -631,44 +722,156 @@ function VisionCardsPage({ context }: { context: CrmContext }) {
 }
 
 function SmartHunterPage({ context }: { context: CrmContext }) {
-  const requests = visibleRequests(context);
-  const [selectedId, setSelectedId] = useState(requests[0]?.id ?? "");
-  const request = requests.find((item) => item.id === selectedId) ?? requests[0];
-  const internal = useMemo(() => (request ? internalMatches(context, request).slice(0, 3) : []), [context.propertyCards, request]);
-  const external = useMemo(() => (request ? externalMatches(request).slice(0, 3) : []), [request]);
-  const blockers = [...internal, ...external].flatMap((match) => match.blockers).slice(0, 5);
+  const [criteria, setCriteria] = useState<HunterCriteria>({
+    type: "Appartement",
+    transaction: "Vente",
+    city: "Casablanca",
+    district: "Gauthier",
+    bedrooms: "2",
+    budgetMin: "1200000",
+    budgetMax: "1900000",
+    surfaceMin: "80",
+    surfaceMax: "130"
+  });
+  const [hasSearched, setHasSearched] = useState(false);
+  const [results, setResults] = useState<HunterResult[]>([]);
+
+  const launch = (event: FormEvent) => {
+    event.preventDefault();
+    const found = runHunterSearch(criteria, context.propertyCards);
+    setResults(found);
+    setHasSearched(true);
+    context.logAction("hunter_search", "hunter_result", undefined, { district: criteria.district, results: found.length });
+  };
 
   return (
-    <Page title="Smart Property Hunter V3" eyebrow="Analyse deterministe">
-      {!request ? (
-        <EmptyState title="Aucune demande disponible" text="Creer une demande pour activer le resume et le top 3." />
+    <Page title="Smart Property Hunter" eyebrow="Avito, Mubawab, Yakeey">
+      <section className="hunter-launch panel">
+        <div>
+          <span className="mini-eyebrow">Lancer la chasse</span>
+          <h2>Avito, Mubawab, Yakeey avec score, budget/surface numeriques et deduplication</h2>
+        </div>
+        <form className="hunter-form" onSubmit={launch}>
+          <SelectField label="Type" value={criteria.type} values={["Appartement", "Villa", "Maison", "Terrain", "Bureau", "Local commercial"]} onChange={(type) => setCriteria({ ...criteria, type })} />
+          <SelectField label="Transaction" value={criteria.transaction} values={["Vente", "Location"]} onChange={(transaction) => setCriteria({ ...criteria, transaction: transaction as HunterTransaction })} />
+          <SelectField label="Quartier" value={criteria.district} values={["Gauthier", "Racine", "Maarif", "Bourgogne", "Agdal", "Hay Riad", "Bouskoura"]} onChange={(district) => setCriteria({ ...criteria, district })} />
+          <TextInput label="Chambres" value={criteria.bedrooms} onChange={(bedrooms) => setCriteria({ ...criteria, bedrooms })} />
+          <TextInput label="Budget min" type="number" value={criteria.budgetMin} onChange={(budgetMin) => setCriteria({ ...criteria, budgetMin })} />
+          <TextInput label="Budget max" type="number" value={criteria.budgetMax} onChange={(budgetMax) => setCriteria({ ...criteria, budgetMax })} />
+          <TextInput label="Surface min" type="number" value={criteria.surfaceMin} onChange={(surfaceMin) => setCriteria({ ...criteria, surfaceMin })} />
+          <TextInput label="Surface max" type="number" value={criteria.surfaceMax} onChange={(surfaceMax) => setCriteria({ ...criteria, surfaceMax })} />
+          <button className="primary-button hunter-submit" type="submit"><Target size={18} /><span>Lancer la chasse</span></button>
+        </form>
+      </section>
+      {!hasSearched ? (
+        <EmptyState title="Aucun resultat" text="Lancez une recherche pour alimenter les fiches." />
       ) : (
-        <>
-          <section className="filter-bar">
-            <label>Demande<select value={request.id} onChange={(event) => setSelectedId(event.target.value)}>{requests.map((item) => <option key={item.id} value={item.id}>{clientName(context, item.clientId)} - {item.city}</option>)}</select></label>
-          </section>
-          <section className="panel champagne">
-            <h2>Resume intelligent</h2>
-            <p>{clientName(context, request.clientId)} cherche un {request.propertyType.toLowerCase()} en {request.transactionType} a {request.city}, idealement {request.districts.join(", ")}, avec budget {money(request.budgetMin)} a {money(request.budgetMax)}.</p>
-            <div className="insight-grid">
-              <Insight title="Criteres bloquants" items={blockers.length ? blockers : ["Aucun bloquant majeur dans le top"]} />
-              <Insight title="Opportunites a relancer" items={[...internal, ...external].filter((match) => match.score >= 70).map((match) => match.property.title).slice(0, 3)} />
-              <Insight title="Recommandation conseiller" items={[internal[0]?.score >= 75 ? "Coordonner le conseiller source et appeler le client." : "Elargir les quartiers et surveiller les sources externes."]} />
-            </div>
-          </section>
-          <MatchSection title="Top 3 biens internes" matches={internal} context={context} />
-          <MatchSection title="Top 3 biens externes" matches={external} context={context} external />
-        </>
+        <section className="hunter-results">
+          {results.length ? results.map((result) => <HunterResultCard key={result.id} result={result} />) : <EmptyState title="Aucun resultat qualifie" text="Les biens sous 50/100 sont masques." />}
+        </section>
       )}
     </Page>
+  );
+}
+
+function AiWriterPage({ context }: { context: CrmContext }) {
+  const { id } = useParams();
+  const card = visibleVisionCards(context).find((item) => item.id === id);
+  const [ads, setAds] = useState<GeneratedAd[]>(() => (id ? context.generatedAds[id] ?? [] : []));
+
+  if (!card) return <Navigate to="/vision-cards" replace />;
+
+  const regenerate = () => {
+    const next = generateAds(card);
+    setAds(next);
+    context.setGeneratedAds({ ...context.generatedAds, [card.id]: next });
+    context.logAction("generate_ai_ads", "property_card", card.id, { versions: next.length });
+  };
+
+  const copyText = (text: string) => {
+    void navigator.clipboard?.writeText(text);
+  };
+
+  return (
+    <Page title="Redacteur IA" eyebrow={card.title} action={<button className="primary-button" onClick={regenerate}><Sparkles size={18} /><span>Regenerer</span></button>}>
+      <section className="summary-band">
+        <div><span>Bien</span><strong>{card.propertyType} - {card.district}</strong></div>
+        <div><span>Prix</span><strong>{money(card.price)}</strong></div>
+        <div><span>Format</span><strong>Avito / Mubawab / Marketplace / Instagram</strong></div>
+      </section>
+      {!ads.length ? (
+        <EmptyState title="Aucune annonce generee" text="Lancez la generation pour produire les 4 versions." />
+      ) : (
+        <section className="ad-grid">
+          {ads.map((ad) => (
+            <article className="ad-card" key={ad.channel}>
+              <Badge>{ad.channel}</Badge>
+              <h3>{ad.title}</h3>
+              <p>{ad.text}</p>
+              <div className="button-row">
+                <button className="secondary-button" onClick={() => copyText(`${ad.title}\n\n${ad.text}`)}><Clipboard size={16} /><span>Copier</span></button>
+                <button className="secondary-button" onClick={regenerate}><Sparkles size={16} /><span>Regenerer</span></button>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+    </Page>
+  );
+}
+
+function HunterResultCard({ result }: { result: HunterResult }) {
+  return (
+    <article className="hunter-card">
+      <div className="hunter-card-top">
+        <Badge>{result.source}</Badge>
+        <div className="score">{result.score}</div>
+      </div>
+      <h3>{result.title}</h3>
+      <p>{result.shortDescription}</p>
+      <dl>
+        <div><dt>Prix</dt><dd>{money(result.price)}</dd></div>
+        <div><dt>Transaction</dt><dd>{result.transaction}</dd></div>
+        <div><dt>Quartier</dt><dd>{result.district}</dd></div>
+        <div><dt>Type</dt><dd>{result.propertyType}</dd></div>
+        <div><dt>Surface</dt><dd>{result.surface} m2</dd></div>
+        <div><dt>Chambres</dt><dd>{result.bedrooms}</dd></div>
+      </dl>
+      <p className="muted">{result.reasons.join(", ")}.</p>
+      {result.duplicateNotice && <p className="notice">{result.duplicateNotice}</p>}
+      <a className="secondary-button" href={result.sourceUrl} target="_blank" rel="noreferrer"><Eye size={16} /><span>Lien source</span></a>
+    </article>
+  );
+}
+
+function AssignmentCard({ advisor, advisors, context }: { advisor: User; advisors: User[]; context: CrmContext }) {
+  const [targetId, setTargetId] = useState(advisors.find((item) => item.id !== advisor.id)?.id ?? "");
+  const clientsCount = context.clients.filter((client) => client.assignedAdvisorId === advisor.id).length;
+  const requestsCount = context.requests.filter((request) => request.advisorId === advisor.id).length;
+  const reassign = () => {
+    if (!targetId) return;
+    context.setClients(context.clients.map((client) => client.assignedAdvisorId === advisor.id ? { ...client, assignedAdvisorId: targetId, updatedAt: new Date().toISOString() } : client));
+    context.setRequests(context.requests.map((request) => request.advisorId === advisor.id ? { ...request, advisorId: targetId, updatedAt: new Date().toISOString() } : request));
+    context.logAction("reassign_advisor", "app_user", advisor.id, { toAdvisorId: targetId, clientsMoved: clientsCount, requestsMoved: requestsCount });
+  };
+
+  return (
+    <article className="entity-card">
+      <div className="avatar-line"><span className="avatar">{initials(advisor.name)}</span><div><h3>{advisor.name}</h3><p>@{advisor.username}</p></div></div>
+      <dl><div><dt>Clients</dt><dd>{clientsCount}</dd></div><div><dt>Demandes</dt><dd>{requestsCount}</dd></div></dl>
+      <label>Reassigner vers<select value={targetId} onChange={(event) => setTargetId(event.target.value)}>{advisors.filter((item) => item.id !== advisor.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <button className="secondary-button" onClick={reassign}>Reassigner clients/demandes</button>
+    </article>
   );
 }
 
 function AdminPage({ context }: { context: CrmContext }) {
   if (context.currentUser?.role === "CONSEILLER") return <AccessDenied />;
   const [form, setForm] = useState({ username: "", name: "", role: "CONSEILLER", password: "12345678" });
+  const [tab, setTab] = useState("Utilisateurs");
   const actor = context.currentUser!;
   const users = visibleUsers(context);
+  const advisors = users.filter((user) => user.role === "CONSEILLER");
 
   const createUser = (event: FormEvent) => {
     event.preventDefault();
@@ -698,28 +901,57 @@ function AdminPage({ context }: { context: CrmContext }) {
   };
 
   return (
-    <Page title="Administration utilisateurs" eyebrow="Roles et securite">
-      <form className="form-panel compact-form" onSubmit={createUser}>
-        <TextInput label="Username" value={form.username} onChange={(username) => setForm({ ...form, username })} required />
-        <TextInput label="Nom affiche" value={form.name} onChange={(name) => setForm({ ...form, name })} />
-        {actor.role === "LUCIFER" && <SelectField label="Role" value={form.role} values={["LUCIFER", "ADMIN", "CONSEILLER"]} onChange={(role) => setForm({ ...form, role })} />}
-        <TextInput label="Mot de passe temporaire" value={form.password} onChange={(password) => setForm({ ...form, password })} required />
-        <button className="primary-button" type="submit"><UserPlus size={18} /><span>Creer compte</span></button>
-      </form>
-      <section className="card-grid">
-        {users.map((user) => (
-          <article className="entity-card" key={user.id}>
-            <div className="avatar-line"><span className="avatar">{initials(user.name)}</span><div><h3>{user.name}</h3><p>@{user.username}</p></div></div>
-            <div className="inline-badges"><Badge>{user.role}</Badge><Badge>{user.isActive ? "actif" : "desactive"}</Badge>{user.mustChangePassword && <Badge>mot de passe requis</Badge>}</div>
-            <div className="button-row">
-              <button className="secondary-button" onClick={() => patchUser(user, { isActive: !user.isActive })}>{user.isActive ? "Desactiver" : "Activer"}</button>
-              <button className="secondary-button" onClick={() => patchUser(user, { mustChangePassword: true })}>Forcer changement</button>
-              <button className="secondary-button" onClick={() => context.setPasswordBook({ ...context.passwordBook, [user.username]: "12345678" })}>Reset 12345678</button>
-              {user.role === "CONSEILLER" && <button className="ghost-danger" onClick={() => context.setUsers(context.users.filter((item) => item.id !== user.id))}>Supprimer</button>}
-            </div>
-          </article>
+    <Page title="Administration" eyebrow="Utilisateurs, affectations, activite, securite">
+      <div className="tabs">
+        {["Utilisateurs", "Affectations", "Activite", "Securite"].map((item) => (
+          <button key={item} className={tab === item ? "tab active" : "tab"} onClick={() => setTab(item)}>{item}</button>
         ))}
-      </section>
+      </div>
+      {tab === "Utilisateurs" && (
+        <>
+          <form className="form-panel compact-form" onSubmit={createUser}>
+            <TextInput label="Username" value={form.username} onChange={(username) => setForm({ ...form, username })} required />
+            <TextInput label="Nom affiche" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+            {actor.role === "LUCIFER" && <SelectField label="Role" value={form.role} values={["LUCIFER", "ADMIN", "CONSEILLER"]} onChange={(role) => setForm({ ...form, role })} />}
+            <TextInput label="Mot de passe temporaire" value={form.password} onChange={(password) => setForm({ ...form, password })} required />
+            <button className="primary-button" type="submit"><UserPlus size={18} /><span>Creer compte</span></button>
+          </form>
+          <section className="card-grid">
+            {users.map((user) => (
+              <article className="entity-card" key={user.id}>
+                <div className="avatar-line"><span className="avatar">{initials(user.name)}</span><div><h3>{user.name}</h3><p>@{user.username}</p></div></div>
+                <div className="inline-badges"><Badge>{user.role}</Badge><Badge>{user.isActive ? "actif" : "desactive"}</Badge>{user.mustChangePassword && <Badge>mot de passe requis</Badge>}</div>
+                <dl>
+                  <div><dt>Clients assignes</dt><dd>{context.clients.filter((client) => client.assignedAdvisorId === user.id).length}</dd></div>
+                  <div><dt>Demandes</dt><dd>{context.requests.filter((request) => request.advisorId === user.id).length}</dd></div>
+                </dl>
+                <div className="button-row">
+                  <button className="secondary-button" onClick={() => patchUser(user, { isActive: !user.isActive })}>{user.isActive ? "Desactiver" : "Activer"}</button>
+                  <button className="secondary-button" onClick={() => patchUser(user, { mustChangePassword: true })}>Forcer changement</button>
+                  <button className="secondary-button" onClick={() => context.setPasswordBook({ ...context.passwordBook, [user.username]: "12345678" })}>Reset 12345678</button>
+                  {(actor.role === "LUCIFER" || user.role === "CONSEILLER") && user.id !== actor.id && <button className="ghost-danger" onClick={() => context.setUsers(context.users.filter((item) => item.id !== user.id))}>Supprimer</button>}
+                </div>
+              </article>
+            ))}
+          </section>
+        </>
+      )}
+      {tab === "Affectations" && (
+        <section className="card-grid">
+          {advisors.map((advisor) => <AssignmentCard key={advisor.id} advisor={advisor} context={context} advisors={advisors} />)}
+        </section>
+      )}
+      {tab === "Activite" && <AuditPanel logs={visibleAuditLogs(context).slice(0, 12)} context={context} />}
+      {tab === "Securite" && (
+        <section className="panel">
+          <h2>Panneau systeme</h2>
+          <div className="insight-grid">
+            <Insight title="Role courant" items={[actor.role]} />
+            <Insight title="Lucifer visible" items={[actor.role === "LUCIFER" ? "Oui, acces total." : "Non, comptes LUCIFER masques."]} />
+            <Insight title="Comptes actifs" items={[String(users.filter((user) => user.isActive).length)]} />
+          </div>
+        </section>
+      )}
     </Page>
   );
 }
@@ -804,8 +1036,13 @@ function PropertyCardView({ card, context, mutable }: { card: PropertyCard; cont
       <p>{card.city}/{card.district} - {card.propertyType}</p>
       <dl><div><dt>Surface</dt><dd>{card.surface} m2</dd></div><div><dt>Chambres</dt><dd>{card.bedrooms}</dd></div><div><dt>SDB</dt><dd>{card.bathrooms}</dd></div></dl>
       <p className="muted">{card.shortDescription}</p>
-      <footer><span>{advisorName(context, card.ownerAdvisorId)}</span><a href={card.sourceUrl} target="_blank" rel="noreferrer">source</a></footer>
-      {canMutate && <div className="button-row"><button className="secondary-button" onClick={() => updateStatus("ignore")}>Ignorer</button><button className="ghost-danger" onClick={() => updateStatus("expire")}>Expirer</button></div>}
+      <div className="inline-badges"><Badge>{card.status}</Badge><Badge>{advisorName(context, card.ownerAdvisorId)}</Badge></div>
+      <footer><span>{card.source}</span><a href={card.sourceUrl} target="_blank" rel="noreferrer">Voir detail</a></footer>
+      <div className="button-row">
+        <Link className="secondary-button" to={`/ai-writer/${card.id}`}><Sparkles size={16} /><span>Rediger annonces IA</span></Link>
+        {canMutate && <button className="secondary-button" onClick={() => updateStatus("ignore")}>Ignorer</button>}
+        {canMutate && <button className="ghost-danger" onClick={() => updateStatus("expire")}>Expirer</button>}
+      </div>
     </article>
   );
 }
@@ -885,6 +1122,198 @@ function internalMatches(context: CrmContext, request: ClientRequest) {
 
 function externalMatches(request: ClientRequest) {
   return externalProperties.map((card) => visibleMatch(request, card)).filter(isMatch).sort((a, b) => b.score - a.score);
+}
+
+function runHunterSearch(criteria: HunterCriteria, cards: PropertyCard[]) {
+  const generated = [
+    mockHunterResult("Avito", criteria, 0.92, "Annonce Avito realiste avec ascenseur, parking et proximite commerces."),
+    mockHunterResult("Mubawab", criteria, 0.96, "Residence standing, finitions premium, concierge, parking et balcon."),
+    mockHunterResult("Avito", criteria, 1.04, "Bien propre, lumineux, proche axes principaux, disponible rapidement."),
+    mockHunterResult("Mubawab", criteria, 0.98, "Annonce proche d'un autre portail, conservee seulement si meilleur score.")
+  ];
+  const internal = cards.filter((card) => card.status === "actif").map(cardToHunterResult);
+  const scored = [...generated, ...internal].map((item) => scoreHunter(criteria, item)).filter((item) => item.score >= 50);
+  return deduplicateHunter(scored).sort((a, b) => b.score - a.score);
+}
+
+function mockHunterResult(source: "Avito" | "Mubawab", criteria: HunterCriteria, priceFactor: number, description: string): HunterResult {
+  const basePrice = Number(criteria.budgetMax || (criteria.transaction === "Location" ? 14000 : 1800000));
+  const surface = Number(criteria.surfaceMin || 85) + (source === "Mubawab" ? 18 : 9);
+  return {
+    id: `${source}-${criteria.district}-${priceFactor}`,
+    source,
+    score: 1,
+    title: `${criteria.type} ${criteria.district} ${source === "Mubawab" ? "premium" : "lumineux"}`,
+    price: Math.round(basePrice * priceFactor),
+    transaction: criteria.transaction,
+    city: criteria.city,
+    district: criteria.district,
+    propertyType: criteria.type,
+    surface,
+    bedrooms: Number(criteria.bedrooms || 2),
+    bathrooms: 2,
+    sourceUrl: source === "Avito" ? "https://avito.example/tim-crm-beta-1" : "https://mubawab.example/tim-crm-beta-1",
+    shortDescription: description,
+    reasons: [],
+    blockers: []
+  };
+}
+
+function cardToHunterResult(card: PropertyCard): HunterResult {
+  return {
+    id: card.id,
+    source: "Yakeey interne",
+    score: 1,
+    title: card.title,
+    price: card.price,
+    transaction: card.price < 50000 ? "Location" : "Vente",
+    city: card.city,
+    district: card.district,
+    propertyType: card.propertyType,
+    surface: card.surface,
+    bedrooms: card.bedrooms,
+    bathrooms: card.bathrooms,
+    sourceUrl: card.sourceUrl,
+    shortDescription: card.shortDescription,
+    reasons: [],
+    blockers: []
+  };
+}
+
+function scoreHunter(criteria: HunterCriteria, result: HunterResult): HunterResult {
+  let score = 0;
+  const reasons: string[] = [];
+  const blockers: string[] = [];
+  const budgetMin = Number(criteria.budgetMin || 0);
+  const budgetMax = Number(criteria.budgetMax || Number.MAX_SAFE_INTEGER);
+  if (result.price >= budgetMin && result.price <= budgetMax) {
+    score += 25;
+    reasons.push("Budget compatible");
+  } else if (Math.abs(result.price - budgetMax) <= budgetMax * 0.12) {
+    score += 12;
+    reasons.push("Budget proche");
+  } else {
+    blockers.push("Budget hors cible");
+  }
+  if (same(criteria.district, result.district)) {
+    score += 25;
+    reasons.push("Quartier demande");
+  } else if (same(criteria.city, result.city)) {
+    score += 12;
+    reasons.push("Ville compatible");
+  }
+  if (same(criteria.type, result.propertyType)) score += pushReason(reasons, 15, "Type de bien exact");
+  else blockers.push("Type different");
+  if (result.surface >= Number(criteria.surfaceMin || 0) && result.surface <= Number(criteria.surfaceMax || Number.MAX_SAFE_INTEGER)) score += pushReason(reasons, 10, "Surface suffisante");
+  else blockers.push("Surface hors cible");
+  if (result.bedrooms >= Number(criteria.bedrooms || 0)) score += pushReason(reasons, 10, `${result.bedrooms} chambres trouvees`);
+  else blockers.push("Chambres insuffisantes");
+  if (result.transaction === criteria.transaction) score += pushReason(reasons, 10, "Transaction compatible");
+  else blockers.push("Transaction differente");
+  if (result.shortDescription.length > 40) score += pushReason(reasons, 5, "Description coherente");
+  return { ...result, score: Math.max(1, Math.min(100, score)), reasons, blockers };
+}
+
+function deduplicateHunter(results: HunterResult[]) {
+  const kept: HunterResult[] = [];
+  for (const result of results) {
+    const duplicateIndex = kept.findIndex((item) => probableDuplicate(item, result));
+    if (duplicateIndex === -1) {
+      kept.push(result);
+    } else if (result.score > kept[duplicateIndex].score) {
+      kept[duplicateIndex] = { ...result, duplicateNotice: "Doublon detecte - meilleure source conservee" };
+    } else {
+      kept[duplicateIndex] = { ...kept[duplicateIndex], duplicateNotice: "Doublon detecte - meilleure source conservee" };
+    }
+  }
+  return kept;
+}
+
+function probableDuplicate(a: HunterResult, b: HunterResult) {
+  const sameDistrict = same(a.district, b.district);
+  const closePrice = Math.abs(a.price - b.price) <= Math.max(a.price, b.price) * 0.05;
+  const closeSurface = Math.abs(a.surface - b.surface) <= 5;
+  const sameBedrooms = a.bedrooms === b.bedrooms;
+  const titleOverlap = normalizeWords(a.title).filter((word) => normalizeWords(b.title).includes(word)).length >= 2;
+  return [sameDistrict, closePrice, closeSurface, sameBedrooms, titleOverlap].filter(Boolean).length >= 4;
+}
+
+function analyzeYakeeyLink(url: string, ownerAdvisorId: string): PropertyCard {
+  const normalized = url.toLowerCase();
+  const sample = normalized.includes("agdal")
+    ? { title: "Appartement standing Agdal", price: 13200, city: "Rabat", district: "Agdal", propertyType: "Appartement", surface: 96, bedrooms: 2, bathrooms: 2, shortDescription: "Standing, ascenseur, balcon et parking." }
+    : normalized.includes("racine")
+      ? { title: "Appartement terrasse Racine", price: 1850000, city: "Casablanca", district: "Racine", propertyType: "Appartement", surface: 105, bedrooms: 2, bathrooms: 2, shortDescription: "Terrasse, residence premium et quartier recherche." }
+      : { title: "Appartement lumineux Gauthier", price: 1680000, city: "Casablanca", district: "Gauthier", propertyType: "Appartement", surface: 101, bedrooms: 2, bathrooms: 2, shortDescription: "Lumineux, proche tram, commerces et parking." };
+  const stamp = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    ...sample,
+    source: "Yakeey",
+    sourceUrl: url,
+    ownerAdvisorId,
+    status: "actif",
+    elevator: true,
+    parking: true,
+    terrace: sample.shortDescription.toLowerCase().includes("terrasse") || sample.shortDescription.toLowerCase().includes("balcon"),
+    furnished: false,
+    importedAt: stamp,
+    updatedAt: stamp
+  };
+}
+
+function generateAds(card: PropertyCard): GeneratedAd[] {
+  const location = `${card.district}, ${card.city}`;
+  const specs = `${card.surface} m2, ${card.bedrooms} chambres, ${card.bathrooms} salles de bain`;
+  return [
+    {
+      channel: "Avito",
+      title: `${card.propertyType} lumineux a ${card.district}`,
+      text: `Decouvrez ce ${card.propertyType.toLowerCase()} de ${specs} situe a ${location}. ${card.shortDescription} Contactez votre conseiller pour organiser une visite.`
+    },
+    {
+      channel: "Mubawab",
+      title: `${card.propertyType} premium a ${location}`,
+      text: `TIM CRM vous presente un bien selectionne pour son emplacement et son potentiel. Surface: ${card.surface} m2. Chambres: ${card.bedrooms}. Salles de bain: ${card.bathrooms}. Points forts: ${card.shortDescription}`
+    },
+    {
+      channel: "Marketplace",
+      title: `${card.propertyType} disponible a ${card.district}`,
+      text: `Bien disponible a ${card.district}: ${specs}. ${card.shortDescription} Contact rapide pour infos et visite.`
+    },
+    {
+      channel: "Instagram",
+      title: `Nouvelle pepite a ${card.district}`,
+      text: `${card.propertyType} a ${card.district}. ${specs}. ${card.shortDescription} Visite sur rendez-vous avec TIM CRM. ✨ #immobilier #timcrm #casablanca`
+    }
+  ];
+}
+
+function matchToHunterResult(match: MatchResult): HunterResult {
+  return {
+    ...cardToHunterResult(match.property),
+    source: match.property.source === "Yakeey" ? "Yakeey interne" : match.property.source,
+    score: match.score,
+    reasons: match.reasons,
+    blockers: match.blockers
+  };
+}
+
+function pushReason(reasons: string[], points: number, label: string) {
+  reasons.push(label);
+  return points;
+}
+
+function same(a: string, b: string) {
+  return normalizeText(a) === normalizeText(b);
+}
+
+function normalizeText(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
+function normalizeWords(value: string) {
+  return normalizeText(value).split(/\W+/).filter((word) => word.length > 3);
 }
 
 function isMatch(value: MatchResult | null): value is MatchResult {

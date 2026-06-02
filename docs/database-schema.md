@@ -101,6 +101,38 @@ create table matches (
   created_at timestamptz not null default now()
 );
 
+create table hunter_results (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid references app_users(id),
+  criteria jsonb not null default '{}',
+  source property_source,
+  source_url text,
+  title text not null,
+  price numeric not null,
+  transaction_type transaction_type,
+  city text not null,
+  district text not null,
+  property_type text not null,
+  surface numeric not null,
+  bedrooms integer not null,
+  bathrooms integer not null default 0,
+  score integer not null check (score between 1 and 100),
+  reasons text[] not null default '{}',
+  blockers text[] not null default '{}',
+  duplicate_notice text,
+  created_at timestamptz not null default now()
+);
+
+create table generated_ads (
+  id uuid primary key default gen_random_uuid(),
+  property_card_id uuid not null references property_cards(id) on delete cascade,
+  actor_user_id uuid references app_users(id),
+  channel text not null check (channel in ('Avito', 'Mubawab', 'Marketplace', 'Instagram')),
+  title text not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
 create table audit_logs (
   id uuid primary key default gen_random_uuid(),
   actor_user_id uuid references app_users(id),
@@ -115,6 +147,8 @@ create index idx_clients_advisor on clients(assigned_advisor_id);
 create index idx_requests_advisor on requests(advisor_id);
 create index idx_requests_client on requests(client_id);
 create index idx_property_cards_owner on property_cards(owner_advisor_id);
+create index idx_hunter_results_actor on hunter_results(actor_user_id);
+create index idx_generated_ads_property on generated_ads(property_card_id);
 create index idx_audit_logs_entity on audit_logs(entity_type, entity_id);
 ```
 
